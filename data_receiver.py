@@ -43,10 +43,28 @@ def start_http_server(addr, log_queue):
                     state["loop"].call_soon_threadsafe(asyncio.create_task, forward())
                 else:
                     log_queue.put(f"⚠️ 无 WebSocket 客户端连接: {state['websocket']=}, {state['loop']=}")
+
+                # 成功响应
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "success": True,
+                    "code": 200,
+                    "message": "数据已接收并处理"
+                }).encode('utf-8'))
+
             except Exception as e:
                 log_queue.put(f"❌ JSON 解析失败: {e}")
-            self.send_response(200)
-            self.end_headers()
+                # 失败响应
+                self.send_response(400)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "success": False,
+                    "code": 400,
+                    "error": str(e)
+                }).encode('utf-8'))
 
     try:
         if addr.startswith("http://"):

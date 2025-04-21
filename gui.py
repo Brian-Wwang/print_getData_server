@@ -13,12 +13,15 @@ class WebSocketServerGUI(QWidget):
     def __init__(self):
         super().__init__()
         self.server_process = None
+        self.ws_thread = None
+        self.http_thread = None
+        self.ws_stop_event = threading.Event()
         self.log_queue = multiprocessing.Queue()
         self.init_ui()
         self.timer = self.startTimer(500)
 
     def init_ui(self):
-        self.setWindowTitle("跨平台 PDF 打印服务器")
+        self.setWindowTitle("Print Application Server (V1.0)")
         self.setFixedSize(720, 680)
         main_layout = QVBoxLayout()
         main_layout.setSpacing(12)
@@ -58,8 +61,8 @@ class WebSocketServerGUI(QWidget):
 
         print_layout.addWidget(QLabel("打印端口 (8000-65535):"), 0, 0)
         print_layout.addWidget(self.port_input, 0, 1)
-        print_layout.addWidget(QLabel("选择打印机:"), 1, 0)
-        print_layout.addWidget(self.printer_combo, 1, 1)
+        print_layout.addWidget(QLabel("选择打印机:"), 0, 2)
+        print_layout.addWidget(self.printer_combo, 0, 3)
 
         self.print_group.setLayout(print_layout)
         main_layout.addWidget(self.print_group)
@@ -107,18 +110,22 @@ class WebSocketServerGUI(QWidget):
         self.data_group.setVisible(self.data_checkbox.isChecked())
 
     def toggle_server(self):
-        if self.server_process and self.server_process.is_alive():
+        # 判断是否有线程仍在运行
+        if (self.print_checkbox.isChecked() and self.ws_thread and self.ws_thread.is_alive()) or \
+        (self.data_checkbox.isChecked() and self.http_thread and self.http_thread.is_alive()):
             self.stop_server()
         else:
             self.start_server()
 
+
     def start_server(self):
         if self.data_checkbox.isChecked():
-            threading.Thread(
+            self.http_thread = threading.Thread(
                 target=start_http_server,
                 args=(self.addr_input.text(), self.log_queue),
                 daemon=True
-            ).start()
+            )
+            self.http_thread.start()
 
         try:
             port = int(self.port_input.text())
@@ -126,31 +133,44 @@ class WebSocketServerGUI(QWidget):
                 QMessageBox.warning(self, "错误", "端口号必须在 8000-65535 之间")
                 return
             printer = self.printer_combo.currentText()
-            self.ws_thread = threading.Thread(
-                target=start_server_process,
-                args=(port, printer, self.log_queue),
-                daemon=True
-            )
-            self.ws_thread.start()
+            if self.print_checkbox.isChecked():
+                self.ws_stop_event.clear()  # 启动前清除
+                self.ws_thread = threading.Thread(
+                    target=start_server_process,
+                    args=(port, printer, self.log_queue, self.ws_stop_event),
+                    daemon=True
+                )
+                self.ws_thread.start()
+
             self.port_input.setDisabled(True)
             self.printer_combo.setDisabled(True)
             self.addr_input.setDisabled(True)
+            self.print_checkbox.setDisabled(True)
+            self.data_checkbox.setDisabled(True)
             self.start_btn.setText("停止服务器")
             self.status_label.setText("✅ 打印服务启动中...")
         except ValueError:
             QMessageBox.warning(self, "错误", "请输入有效的端口号")
 
     def stop_server(self):
-        from data_receiver import stop_http_server
-        stop_http_server()  # ✅ 停止 HTTP Server
+        # 停止 HTTP 服务
+        if self.data_checkbox.isChecked():
+            from data_receiver import stop_http_server
+            stop_http_server()
+            self.http_thread = None
 
-        if self.server_process:
-            self.server_process.terminate()
-            self.server_process.join()
-            self.server_process = None
+        # 停止 WebSocket 服务
+        if self.print_checkbox.isChecked() and self.ws_thread:
+            self.ws_stop_event.set()  # 通知协程退出
+            self.ws_thread.join(timeout=3)
+            self.ws_thread = None
 
+        # UI 恢复
         self.port_input.setDisabled(False)
         self.printer_combo.setDisabled(False)
+        self.addr_input.setDisabled(False)
+        self.print_checkbox.setDisabled(False)
+        self.data_checkbox.setDisabled(False)
         self.start_btn.setText("启动服务器")
         self.status_label.setText("❌ 打印服务已停止")
 
