@@ -28,16 +28,34 @@ def save_base64_pdf(base64_data, filename="print_document.pdf"):
     return path
 
 def print_pdf_file(path, printer_name):
+    print(f"打印 PDF 文件: {path}")
+    print(f"打印机名称: {printer_name}")
     system = platform.system()
     try:
         if system == "Windows":
-            import win32api
-            print_log(f"📤 Windows 打印 {path}")
+            try:
+                import win32print
+                import win32api
+            except ImportError:
+                print_log("❌ 未安装 pywin32，请运行 pip install pywin32")
+                return False
+
+            print_log(f"📤 发送 PDF 到打印机: {printer_name} (Windows)")
             win32api.ShellExecute(0, "print", path, f'/d:"{printer_name}"', ".", 0)
+
         else:
-            subprocess.run(["lp", "-d", printer_name, path], check=True)
+            print_log(f"📤 发送 PDF 到打印机: {printer_name} (Linux/macOS)")
+            process = subprocess.Popen(["lp", "-d", printer_name, path],
+                                       stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            stdout, stderr = process.communicate()
+
+            if process.returncode != 0:
+                print_log(f"❌ 打印失败: {stderr.decode().strip()}")
+                return False
+
         print_log("✅ 打印完成")
         return True
+
     except Exception as e:
         print_log(f"❌ 打印失败: {e}")
         return False

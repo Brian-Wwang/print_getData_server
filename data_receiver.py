@@ -2,6 +2,7 @@ import json
 import asyncio
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+
 # 全局状态共享容器
 state = {
     "websocket": None,
