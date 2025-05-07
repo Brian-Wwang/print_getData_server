@@ -144,7 +144,6 @@ class WebSocketServerGUI(QWidget):
 
             self.port_input.setDisabled(True)
             self.printer_combo.setDisabled(True)
-            self.addr_input.setDisabled(True)
             self.print_checkbox.setDisabled(True)
             self.data_checkbox.setDisabled(True)
             self.start_btn.setText("停止服务器")
@@ -168,7 +167,6 @@ class WebSocketServerGUI(QWidget):
         # UI 恢复
         self.port_input.setDisabled(False)
         self.printer_combo.setDisabled(False)
-        self.addr_input.setDisabled(False)
         self.print_checkbox.setDisabled(False)
         self.data_checkbox.setDisabled(False)
         self.start_btn.setText("启动服务器")
