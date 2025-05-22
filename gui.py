@@ -75,8 +75,7 @@ class WebSocketServerGUI(QWidget):
         data_layout.setHorizontalSpacing(15)
         data_layout.setVerticalSpacing(10)
 
-        self.addr_input = QLineEdit("localhost:13213/callback")
-        self.addr_input.setDisabled(True)
+        self.addr_input = QLineEdit("localhost:3000/callback")
         data_layout.addWidget(QLabel("数据获取地址:"), 0, 0)
         data_layout.addWidget(self.addr_input, 0, 1)
 
